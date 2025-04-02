@@ -38,7 +38,11 @@ namespace qyk {
 		}
 
 		static void deallocate(const_pointer ptr) {
-			Alloc::deallocate((void*)ptr, sizeof(T));
+			if (!ptr)Alloc::deallocate((void*)ptr, sizeof(T));
+		}
+
+		static void deallocate(const_pointer ptr, size_t n) {
+			if (!ptr)Alloc::deallocate((void*)ptr, n * sizeof(T));
 		}
 
 		template<class U>

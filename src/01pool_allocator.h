@@ -6,7 +6,7 @@
 #if !defined(__THROW_BAD_ALLOC)
 #include<iostream>
 #define __THROW_BAD_ALLOC std::cerr<<"out of memery"<<std::endl; exit(1);
-#endif
+#endif              
 
 namespace qyk { //外部接口
 	namespace detail { //内部实现
@@ -94,7 +94,7 @@ namespace qyk { //外部接口
 
 		template<bool threads, int inst>
 		void* __qyk_pool_alloc<threads, inst>::allocate(size_t targetSize) {
-			//std::cout << "pool_alloc" << std::endl;
+			//std::cout << "pool_alloc" << targetSize << std::endl;
 			void* result; //分配给用户的内存地址
 
 			if (MAX_POOL_SIZE < targetSize) { //直接交给malloc
@@ -108,7 +108,7 @@ namespace qyk { //外部接口
 
 			//如果目标链表非空，则从中分配一块给用户
 			if (nullptr != *targetList) {
-				result = *targetList;
+				result = (void*)*targetList;
 				*targetList = (*targetList)->next;
 				return (result);
 			}
@@ -152,7 +152,7 @@ namespace qyk { //外部接口
 
 		template<bool threads, int inst>
 		char* __qyk_pool_alloc<threads, inst>::chunk_alloc(size_t needSize,int &nobjs) {
-			//std::cout << "chunk_alloc  " (void*)<< freeStart <<"  "<< (void*)freeEnd<< std::endl;
+			//std::cout << "chunk_alloc  " << (void*)freeStart <<"  "<< (void*)freeEnd<< std::endl;
 			
 			size_t freeSize = freeEnd - freeStart;  //目前剩下没有挂载到空闲链表的内存大小
 			size_t maxSize = needSize * nobjs;
@@ -192,6 +192,7 @@ namespace qyk { //外部接口
 
 				freeStart = result + maxSize;
 				freeEnd = result + sizeToGet;
+				//std::cout << "分配20个16以后" << (void*)freeStart << "  " << (void*)freeEnd << std::endl;
 				heapSize += sizeToGet;
 				
 				return result;
@@ -205,6 +206,7 @@ namespace qyk { //外部接口
 				result = freeStart;
 				nobjs = (freeEnd - freeStart) / needSize;
 				freeStart = freeStart + nobjs * needSize;
+				//std::cout << "分配8个40后 " << (void*)freeStart << "  " << (void*)freeEnd << std::endl;
 				return result;
 			}
 		}//end of chunk_alloc
@@ -212,6 +214,7 @@ namespace qyk { //外部接口
 		//oom_malloc
 		template<bool threads, int inst>
 		void* __qyk_pool_alloc<threads, inst>::oom_malloc(size_t n) {
+
 			void* result;
 			if (nullptr == myHandler) {
 				__THROW_BAD_ALLOC;
@@ -231,8 +234,9 @@ namespace qyk { //外部接口
 		//deallocate ,将对象的空间回收，重新挂载到对应的空闲链表
 		template<bool threads, int inst>
 		void __qyk_pool_alloc<threads, inst>::deallocate(void* ptr, size_t size) {
+			//std::cout << "deallocate" << ptr << " " << size << std::endl;
 			if (size <= MAX_POOL_SIZE) {
-				obj* volatile* listToAdd = freeLists + round_up(size);
+				obj* volatile* listToAdd = freeLists + find_freelist_numb(size);
 				obj* p = (obj*)ptr;
 				p->next = *listToAdd;
 				*listToAdd = p;
