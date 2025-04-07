@@ -100,29 +100,12 @@ namespace qyk {
 
 //fill，接受两个迭代器和一个常量，使用这个常量对两个迭代器之间的元素进行初始化
 namespace qyk {
-	namespace detail {
-		template<class ForwardIterator, typename T>
-		void __fill(ForwardIterator first, ForwardIterator last, const T x, input_iterator_tag) {
-			for (; first != last; ++first) {
-				*first = x;
-			}
-		}
-
-		template<class ForwardIterator, typename T>
-		void __fill(ForwardIterator first, ForwardIterator last, const T x, random_access_iterator_tag) {
-			auto n = last - first;
-			for (; n != 0; --n, ++first) {
-				*first = x;
-			}
-		}
-
-	}//end of detail
-
 	template<class ForwardIterator, typename T>
 	void fill(ForwardIterator first, ForwardIterator last, const T x) {
-		detail::__fill(first, last, x, iterator_category(first));
+		for (; first != last; ++first) {
+			*first = x;
+		}
 	}
-
 
 }//end of qyk
 

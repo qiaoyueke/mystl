@@ -17,6 +17,11 @@ namespace qyk {
 		new(p) T1(value);
 	}
 
+	template<class T1, class...Argus>
+	inline void construct(T1* p, Argus&&... argus) {
+		new(p) T1(std::forward<Argus>(argus)...);
+	}
+
 	template<typename T>
 	void destroy(T* p) {
 		p->~T();
