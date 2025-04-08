@@ -36,7 +36,7 @@ namespace qyk
             using pointer = T *;
             using reference = T &;
             using const_pointer = const T *;
-            using const_reeference = const T &;
+            using const_reference = const T &;
             using size_type = size_t;
             using difference_type = ptrdiff_t;
             using iterator_category = bidirectional_iterator_tag;
@@ -113,7 +113,7 @@ namespace qyk
         using pointer = typename detail::list_iterator<T>::pointer;
         using reference = typename detail::list_iterator<T>::reference;
         using const_pointer = typename detail::list_iterator<T>::const_pointer;
-        using const_reeference = typename detail::list_iterator<T>::const_reeference;
+        using const_reference = typename detail::list_iterator<T>::const_reference;
         using size_type = typename detail::list_iterator<T>::size_type;
 
     private:
@@ -209,6 +209,9 @@ namespace qyk
             clear();
             free_node(node);
         }
+
+        //empty
+        bool empty()const{return 0==size_;}
 
         // begin()
         iterator begin() { return (*node).next; }
