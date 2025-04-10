@@ -9,10 +9,10 @@ int main()
 
 
     detail::deque_iterator<int, int &, int *, 5> iterator;
-    qyk_vector<int> b1(5, 1);
-    qyk_vector<int> b2(5, 2);
-    qyk_vector<int> b3(5, 3);
-    qyk_vector<int *> map{b1.begin(), b2.begin(), b3.begin()};
+    vector<int> b1(5, 1);
+    vector<int> b2(5, 2);
+    vector<int> b3(5, 3);
+    vector<int *> map{b1.begin(), b2.begin(), b3.begin()};
     iterator.set_node(map.begin());
     iterator.cur = b1.begin();
     auto finish = b3.end() - 1;

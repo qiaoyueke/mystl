@@ -14,7 +14,7 @@ namespace qyk {
 
 
 	template<class T, class Alloc=alloc>
-	class qyk_vector {
+	class vector {
 	public:
 		
 		typedef T					value_type;
@@ -46,19 +46,19 @@ namespace qyk {
 
 	public:
 		//默认构造
-		qyk_vector() :start(nullptr), finish(nullptr), endOfStorage(nullptr) {};
+		vector() :start(nullptr), finish(nullptr), endOfStorage(nullptr) {};
 		//构造n个value
-		qyk_vector(size_type n, value_type value) {
+		vector(size_type n, value_type value) {
 			fill_initialized(n, value);
 		}
 		//构造n个默认值
-		qyk_vector(size_type n) {
+		vector(size_type n) {
 			fill_initialized(n, T());
 		}
 
 		//通过两个迭代器构造
 		template<class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::type>
-		qyk_vector(Iterator first, Iterator last) {
+		vector(Iterator first, Iterator last) {
 			size_type n = distance(first, last);
 			start = data_allocator::allocate(n);
 			uninitialized_copy(first, last, start);
@@ -67,7 +67,7 @@ namespace qyk {
 		}
 
 		//拷贝构造
-		qyk_vector(const qyk_vector<T>& other) {
+		vector(const vector<T>& other) {
 			start = data_allocator::allocate(other.size());
 			uninitialized_copy(other.begin(), other.end(), start);
 			finish = start + other.size();
@@ -75,7 +75,7 @@ namespace qyk {
 		}
 
 		//列表初始化
-		qyk_vector(std::initializer_list<T> init_list) {
+		vector(std::initializer_list<T> init_list) {
 			start = data_allocator::allocate(init_list.size());
 			uninitialized_copy(init_list.begin(), init_list.end(), start);
 			finish = start + init_list.size();
@@ -83,14 +83,14 @@ namespace qyk {
 		}
 
 		//移动构造
-		qyk_vector(qyk_vector<T>&& other)  noexcept  :start(other.start), finish(other.finish), endOfStorage(other.endOfStorage) {
+		vector(vector<T>&& other)  noexcept  :start(other.start), finish(other.finish), endOfStorage(other.endOfStorage) {
 			other.start = nullptr;
 			other.finish = nullptr;
 			endOfStorage = other.endOfStorage = nullptr;
 		};
 
 		//析构
-		~qyk_vector() {
+		~vector() {
 			if (start) {
 				destroy(start, finish);
 				data_allocator::deallocate(start, endOfStorage - start);
@@ -126,8 +126,12 @@ namespace qyk {
 
 		reference front() { return *start; }
 
+		const_reference front() const { return *start; }
+
 		reference back() { return *(finish - 1); }
 		
+		const_reference back() const { return *(finish - 1); }
+
 		bool empty() const { return start == finish ? true : false; }
 
 		size_type size() const { return finish - start; }
@@ -169,7 +173,7 @@ namespace qyk {
 		void insert(const_iterator pos, InputIterator begin, InputIterator end) {
 			iterator vpos = const_cast<iterator>(pos);
 			if ((&*pos) < (&*end) && (&*finish) >= (&*end)) {
-				//满足条件则说明begin和end都是这个qyk_vector的迭代器，并且覆盖了pos，对pos操作会使begin到end
+				//满足条件则说明begin和end都是这个vector的迭代器，并且覆盖了pos，对pos操作会使begin到end
 				//之间的数据被覆盖，需要进行备份,
 				iterator build_start= data_allocator::allocate(distance(begin, end));
 				auto build_finish = build_start + distance(begin, end);
@@ -243,9 +247,9 @@ namespace qyk {
 			}
 		}
 
-		void pop_back(const_iterator pos) {
-			destory(pos);
-			finish--;
+		void pop_back() {
+			if(!empty())
+			destroy(--finish);
 		}
 
 	
@@ -261,7 +265,7 @@ namespace qyk {
 			finish = newfinish;
 		}
 		
-	};//end of qyk_vector
+	};//end of vector
 }//end of qyk
 
 

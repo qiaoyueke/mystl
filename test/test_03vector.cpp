@@ -4,33 +4,33 @@
 using namespace qyk;
 
 int main() {
-	qyk_vector<int> a;
+	vector<int> a;
 	for (int i = 0; i != a.size(); ++i) {
 		std::cout << i << "  "<<a[i]<< std::endl;
 	}
 	std::cout <<"a" << std::endl;
 
-	qyk_vector<int> b(5, 2);
+	vector<int> b(5, 2);
 	for (int i = 0; i != b.size(); ++i) {
 		std::cout << i << "  " << b[i] << std::endl;
 	}std::cout << std::endl;
 
-	qyk_vector<int> c(5);
+	vector<int> c(5);
 	for (int i = 0; i != c.size(); ++i) {
 		std::cout << i << "  " << c[i] << std::endl;
 	}std::cout << std::endl;
 	
-	qyk_vector<int> d(b.begin(),b.end());
+	vector<int> d(b.begin(),b.end());
 	for (int i = 0; i != d.size(); ++i) {
 		std::cout << i << "  " << d[i] << std::endl;
 	}std::cout << std::endl;
 
-	qyk_vector<int> e(d);
+	vector<int> e(d);
 	for (int i = 0; i != e.size(); ++i) {
 		std::cout << i << "  " << e[i] << std::endl;
 	}std::cout << std::endl;
 
-	qyk_vector<int> f(std::move(e));
+	vector<int> f(std::move(e));
 	for (int i = 0; i != f.size(); ++i) {
 		std::cout << i << "  " << f[i] << std::endl;
 	}std::cout << std::endl;

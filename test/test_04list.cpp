@@ -67,7 +67,7 @@ int main(){
         std::cout<<*i<<"    ";
     }std::cout<<c.size()<<"    c.erase(c.begin(),c.end());"<<std::endl;
 
-    qyk_vector<double> va(5,1.2);
+    vector<double> va(5,1.2);
     for(auto i=va.begin();i!=va.end();++i){
         std::cout<<*i<<"    ";
     }std::cout<<va.size()<<"   vector构造"<<std::endl;
