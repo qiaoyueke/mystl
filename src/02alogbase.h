@@ -2,18 +2,37 @@
 #define QYK_ALGOBASE
 
 #include "02iterator.h"
+#include "02type_traits.h"
 #include <string.h> //for memmove
 #include <utility>	//for move
 
-// 模板函数
+// 仿函数
 namespace
 {
 	template <class T = void>
 	struct less
 	{
-		constexpr bool operator()(const T& first, const T& last) const
+		constexpr bool operator()(const T &first, const T &last) const
 		{
 			return first < last;
+		}
+	};
+
+	template <class T = void>
+	struct Self
+	{
+		constexpr T operator()(const T &first) const
+		{
+			return first;
+		}
+	};
+
+	template <class T = void>
+	struct first
+	{
+		constexpr T operator()(const T &first) const
+		{
+			return first.first;
 		}
 	};
 
@@ -215,5 +234,113 @@ namespace qyk
 	}
 
 } // end of qyk move_back
+
+//_lower_bound 与_upper_bound 分别返回范围内第一个小于/大于x的迭代器
+namespace qyk
+{
+	namespace detail
+	{
+		template <class ForwardIterator, class T, class Compare , class Distance>
+		ForwardIterator _lower_bound(ForwardIterator first, ForwardIterator last, const T &x, Compare comp, forward_iterator_tag, Distance*)
+		{
+			Distance len = distance(first, last);
+			Distance half = 0;
+			ForwardIterator mid = first;
+
+			while(len>0){
+				half = len>>1;
+				mid = first;
+				advance(mid, half);
+
+				if(comp(*mid, x)){
+					first = ++mid;
+					len = len - half - 1;
+				}else{
+					len = half;
+				}
+			}
+			return first;
+		}
+
+		template <class RandomIterator, class T, class Compare , class Distance>
+		RandomIterator _lower_bound(RandomIterator first, RandomIterator last, const T &x, Compare comp, random_access_iterator_tag, Distance*)
+		{
+			Distance len = last - first;
+			Distance half = 0;
+			RandomIterator mid = first;
+
+			while(len>0){
+				half = len>>1;
+				mid = first;
+				mid = mid + half;
+
+				if(comp(*mid, x)){
+					first = ++mid;
+					len = len - half - 1;
+				}else{
+					len = half;
+				}
+			}
+			return first;
+		}
+
+		template <class ForwardIterator, class T, class Compare , class Distance>
+		ForwardIterator _upper_bound(ForwardIterator first, ForwardIterator last, const T &x, Compare comp, forward_iterator_tag, Distance*)
+		{
+			Distance len = distance(first, last);
+			Distance half = 0;
+			ForwardIterator mid = first;
+
+			while(len>0){
+				half = len>>1;
+				mid = first;
+				advance(mid, half);
+
+				if(comp(x, *mid)){
+					len = half;
+				}else{
+					first = ++mid;
+					len = len - half - 1;
+				}
+			}
+			return first;
+		}
+
+		template <class RandomIterator, class T, class Compare , class Distance>
+		RandomIterator _upper_bound(RandomIterator first, RandomIterator last, const T &x, Compare comp, random_access_iterator_tag, Distance*)
+		{
+			Distance len = last - first;
+			Distance half = 0;
+			RandomIterator mid = first;
+
+			while(len>0){
+				half = len>>1;
+				mid = first + half;
+
+				if(comp(x, *mid)){
+					len = half;
+				}else{
+					first = ++mid;
+					len = len - half - 1;
+				}
+			}
+			return first;
+		}
+	}//end of detail
+
+	template <class Iterator, class T, class Compare = less<T>, typename my_enable_if<is_iterator<Iterator>::value>::type>
+	Iterator lower_bound(Iterator first, Iterator last, const T &x, Compare comp = Compare())
+	{
+		return _lower_bound(first, last, x, comp, iterator_category(first), distance_type(first));
+	}
+
+	template <class Iterator, class T, class Compare = less<T>, typename my_enable_if<is_iterator<Iterator>::value>::type>
+	Iterator upper_bound(Iterator first, Iterator last, const T &x, Compare comp = Compare())
+	{
+		return _upper_bound(first, last, x, comp, iterator_category(first), distance_type(first));
+	}
+
+}//end of lower_bound/ upper_bound
+
 
 #endif

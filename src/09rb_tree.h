@@ -5,6 +5,7 @@
 #include <utility>
 #include "02iterator.h"
 #include "01qyk_allocator.h"
+#include "02alogbase.h"
 #include "02construct.h"
 #include "07queue.h"
 
@@ -118,12 +119,13 @@ namespace qyk
                 else
                 { // 没有左子树，往上寻找父节点，直到当前节点为父节点的右子树，返回这个父节点
                     auto parent = node->parent;
-                    while (parent->right != node)
+                    while (parent->left == node)
                     {
                         node = parent;
                         parent = node->parent;
                     }
-                    node = parent;
+                    if (parent->parent != node) // 排除只有一个根节点时对begin（）--的情况
+                        node = parent;
                 }
                 return *this;
             }
@@ -170,7 +172,12 @@ namespace qyk
             Compare comp;        // 节点的key值的比较规则
 
             // 获取节点颜色
-            color_type &get_color(nodePointer n) { return n->color; }
+            color_type get_color(nodePointer n)
+            {
+                if (n == nullptr)
+                    return rb_tree_black;
+                return n->color;
+            }
 
             // 获取节点的parent
             nodePointer &get_parent(nodePointer n) { return n->parent; }
@@ -253,8 +260,14 @@ namespace qyk
             // 右旋
             void rotate_right(nodePointer x);
 
+            // 删除节点的内部实现
+            void _erase(nodePointer dNode);
+
+            // 消除双黑节点
+            void _erase_double_black(nodePointer dNode);
+
         public:
-            rb_tree() : nodeCount(0), comp(Compare()) { get_head(); }
+            rb_tree(const Compare compare = Compare()) : nodeCount(0), comp(compare) { get_head(); }
 
             rb_tree(const self &other)
             {
@@ -317,14 +330,25 @@ namespace qyk
             }
 
             // 删除pod上的点
-            iterator erase(iterator pod);
+            void erase(iterator pod);
             // 删除迭代器之间的点
-            iterator erase(iterator first, iterator last);
+            void erase(iterator first, iterator last)
+            {
+                while (first != last)
+                {
+                    erase(first++);
+                }
+            }
             // 删除键为k的节点
-            iterator erase(const key_type &k)
+            void erase(const key_type &k)
             {
                 iterator first = find(k);
                 size_type kcount = count(k);
+                while (kcount != 0)
+                {
+                    erase(first++);
+                    kcount--;
+                }
             }
 
             // 回收除head外所有节点
@@ -357,9 +381,34 @@ namespace qyk
 
             // 插入元素，如果键值重复，则插入失败
             std::pair<iterator, bool> insert_unique(const value_type &value);
+            template <class InputIterator>
+            void insert_unique(InputIterator first, InputIterator last)
+            {
+                while (first != last)
+                {
+                    insert_unique(*first);
+                    first++;
+                }
+            }
+
             // 插入元素，允许键值重复
             std::pair<iterator, bool> insert_equal(const value_type &value);
-        };
+            template <class InputIterator>
+            void insert_equal(InputIterator first, InputIterator last)
+            {
+                while (first != last)
+                {
+                    insert_equal(*first);
+                    first++;
+                }
+            }
+
+            iterator lower_bound(const value_type x) { return _lower_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
+            const_iterator lower_bound(const value_type x) const {return _lower_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
+            iterator upper_bound(const value_type x) {return _upper_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
+            const_iterator upper_bound(const value_type x) const {return _upper_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
+
+        }; // end of rb_tree class
 
         // 拷贝赋值
         template <class Key, class Value, class KeyOfValue, class Compare, class Alloc>
@@ -463,12 +512,14 @@ namespace qyk
                 nodeCount++;
                 pod->parent = newNode;
                 pod->left = newNode;
+                pod->right = newNode;
                 _rb_tree_rebanlance(newNode);
                 return newNode;
             }
+
             if (comp(pod->value, KeyOfValue()(value)))
             {
-                // value大于等于pod，构建右子节点
+                // value大于pod，构建右子节点
                 pod->right = newNode;
                 if (pod == head->right)
                 { // 更新最大值
@@ -504,9 +555,9 @@ namespace qyk
                 if (uncle != nullptr && get_color(uncle) == rb_tree_red)
                 {
                     // 叔叔节点为红,将父节点和叔叔节点变黑，爷爷节点变红，再对爷爷节点平衡
-                    get_color(father) = rb_tree_black;
-                    get_color(uncle) = rb_tree_black;
-                    get_color(grandFather) = rb_tree_red;
+                    father->color = rb_tree_black;
+                    uncle->color = rb_tree_black;
+                    grandFather->color = rb_tree_red;
                     newNode = grandFather;
                 }
                 else
@@ -517,12 +568,16 @@ namespace qyk
                         if (father == grandFather->left)
                         {
                             // ll型
+                            grandFather->color = rb_tree_red;
+                            father->color = rb_tree_black;
                             rotate_right(grandFather);
                         }
                         else
                         {
                             // rl型
                             rotate_right(father);
+                            grandFather->color = rb_tree_red;
+                            newNode->color = rb_tree_black;
                             rotate_left(grandFather);
                         }
                     }
@@ -532,11 +587,15 @@ namespace qyk
                         {
                             // lr型
                             rotate_left(father);
+                            grandFather->color = rb_tree_red;
+                            newNode->color = rb_tree_black;
                             rotate_right(grandFather);
                         }
                         else
                         {
                             // rr型
+                            grandFather->color = rb_tree_red;
+                            father->color = rb_tree_black;
                             rotate_left(grandFather);
                         }
                     }
@@ -553,7 +612,12 @@ namespace qyk
             nodePointer newNode = oldNode->right;
 
             newNode->parent = oldNode->parent;
-            if (oldNode->parent->left == oldNode)
+            if (oldNode->parent == head)
+            {
+                newNode->parent = head;
+                head->parent = newNode;
+            }
+            else if (oldNode->parent->left == oldNode)
             {
                 oldNode->parent->left = newNode;
             }
@@ -579,7 +643,12 @@ namespace qyk
             nodePointer newNode = oldNode->left;
 
             newNode->parent = oldNode->parent;
-            if (oldNode->parent->left == oldNode)
+            if (oldNode->parent == head)
+            {
+                newNode->parent = head;
+                head->parent = newNode;
+            }
+            else if (oldNode->parent->left == oldNode)
             {
                 oldNode->parent->left = newNode;
             }
@@ -597,6 +666,333 @@ namespace qyk
             oldNode->parent = newNode;
             newNode->right = oldNode;
         }
+
+        // 删除元素
+        template <class Key, class Value, class KeyOfValue, class Compare, class Alloc>
+        void rb_tree<Key, Value, KeyOfValue, Compare, Alloc>::erase(iterator pod)
+        {
+            if (empty())
+            {
+                return;
+            }
+
+            // 找到要删除的点直接前驱或者直接后继，这里选直接后继
+            nodePointer deleteNode = pod.node;
+            if (deleteNode->right != nullptr)
+            {
+                deleteNode = get_min(deleteNode->right);
+            }
+            // 将直接后继的值移过来，转换为删除直接后继
+            *pod = deleteNode->value;
+            if (deleteNode == head->left)
+            {
+                if (pod.node == head->left)
+                {
+                    head->left = (++pod).node;
+                    --pod;
+                }
+                else
+                {
+                    head->left = pod.node;
+                }
+            }
+            if (deleteNode == head->right)
+            {
+                if (pod.node == head->right)
+                {
+                    head->right = (--pod).node;
+                    ++pod;
+                }
+                else
+                {
+                    head->right = pod.node;
+                }
+            }
+            _erase(deleteNode);
+            nodeCount--;
+        }
+
+        // 删除节点的内部实现
+        template <class Key, class Value, class KeyOfValue, class Compare, class Alloc>
+        void rb_tree<Key, Value, KeyOfValue, Compare, Alloc>::_erase(nodePointer dNode)
+        {
+            // 要删除根节点
+            if (dNode == head->parent)
+            {
+                // 根节点还有子节点
+                if (dNode->left != nullptr)
+                {
+                    dNode->left->parent = head;
+                    head->parent = dNode->left;
+                    dNode->left->color = rb_tree_black;
+                    free_node(dNode);
+                }
+                else if (dNode->right != nullptr)
+                {
+                    dNode->right->parent = head;
+                    head->parent = dNode->right;
+                    dNode->right->color = rb_tree_black;
+                    free_node(dNode);
+                }
+                else
+                {
+                    // 根节点没有子节点
+                    head->parent = nullptr;
+                    free_node(dNode);
+                }
+                return;
+            }
+
+            // 要删除的节点为红色，则这个节点必然没有子节点，直接删除
+            if (dNode->color == rb_tree_red)
+            {
+                if (dNode->parent->left == dNode)
+                {
+                    dNode->parent->left = nullptr;
+                }
+                else
+                {
+                    dNode->parent->right = nullptr;
+                }
+                free_node(dNode);
+                return;
+            }
+
+            // 节点为黑色，且至少有一个子节点，则这个子节点必然为红色，
+            // 用子节点代替dnode后删除子节点
+            if (!(dNode->left == nullptr && dNode->right == nullptr))
+            {
+                if (dNode->left != nullptr)
+                { // dNode有左节点
+                    dNode->left->parent = dNode->parent;
+                    ((dNode->parent->left == dNode) ? (dNode->parent->left) : (dNode->parent->right)) = dNode->left;
+                    dNode->left->color = rb_tree_black;
+                    free_node(dNode);
+                }
+                else
+                { // dNode有右节点
+                    dNode->right->parent = dNode->parent;
+                    ((dNode->parent->left == dNode) ? (dNode->parent->left) : (dNode->parent->right)) = dNode->right;
+                    dNode->right->color = rb_tree_black;
+                    free_node(dNode);
+                }
+                return;
+            }
+
+            // 节点为黑色，且没有子节点
+
+            // 先判断是否要删除根节点
+            if (dNode == head->parent)
+            {
+                // 删除根节点
+                head->parent = nullptr;
+                head->left = head;
+                head->right = head;
+                free_node(dNode);
+                return;
+            }
+
+            // 需要看dNode的兄弟节点，兄弟节点为红时，将父节点与兄弟节点变色
+            // 往dNode旋转，此后将变为dnode的兄弟节点为黑的情况
+
+            auto father = dNode->parent;
+            auto brother = ((dNode == father->left) ? (father->right) : (father->left));
+
+            if (father->left == dNode && get_color(brother) == rb_tree_red)
+            {
+                // dNode为左子节点,且兄弟节点为红色
+                father->color = rb_tree_red;
+                brother->color = rb_tree_black;
+                rotate_left(father);
+                father = dNode->parent;
+                brother = ((dNode == father->left) ? (father->right) : (father->left));
+            }
+            else if (father->right == dNode && get_color(brother) == rb_tree_red)
+            {
+                father->color = rb_tree_red;
+                brother->color = rb_tree_black;
+                rotate_right(father);
+                father = dNode->parent;
+                brother = ((dNode == father->left) ? (father->right) : (father->left));
+            }
+
+            // 到这里剩下的情况只有dNode为黑，兄弟为黑，此时需要查看兄弟节点的子节点中有没有红色节点
+            // 如果没有红色节点，则将兄弟变红，删除dNode，将父节点标为双黑节点，后续消除双黑节点
+            // 如果兄弟节点有至少一个红色节点，则根据ll，lr，rl，rr，进行旋转与变色
+
+            // 兄弟节点没有红色子节点
+            if (get_color(brother->left) == rb_tree_black && get_color(brother->right) == rb_tree_black)
+            {
+                brother->color = rb_tree_red;
+                // 删除dnode节点
+                if (father->left == dNode)
+                {
+                    father->left = nullptr;
+                }
+                else
+                {
+                    father->right = nullptr;
+                }
+                free_node(dNode);
+
+                // 将father节点标为双黑
+                _erase_double_black(father);
+                return;
+            }
+
+            // 此时只剩下兄弟节点至少有一个红色子节点的情况
+
+            if (father->left == brother) // 兄弟节点为父节点的左子节点
+            {
+                if (get_color(brother->left) == rb_tree_red) // 兄弟节点的左子树为红色，即ll型,
+                {
+                    // 调整的目的是使兄弟节点的左子树上的叶子节点到根节点的黑色节点数多出来一个
+                    // 然后通过旋转将多出来的这个黑色节点转移到dNode所在子树，以弥补因删除dNode而缺少的一个黑色节点
+                    // 具体做法是，保留father与brother的颜色，将他们往下平移，然后将father的颜色改为黑色
+                    // 这样brother的红色子节点所在分支少了一个红色节点，多了一个黑色节点，旋转后可以维持红黑树的性质
+                    brother->left->color = get_color(brother);
+                    brother->color = get_color(father);
+                    father->color = rb_tree_black;
+
+                    father->right = nullptr;
+                    free_node(dNode);
+                    rotate_right(father);
+                }
+                else // 兄弟节点的右子树为红色，即lr型,
+                {
+                    // 将father的颜色赋给这个红色节点，然后将father变黑，
+                    // 左旋brother，右旋father，相当于红色节点变为黑色后转到了右边，
+                    // father节点的颜色经过两次旋转后回到原来的位置，维持了红黑树的性质
+                    brother->right->color = get_color(father);
+                    father->color = rb_tree_black;
+
+                    father->right = nullptr;
+                    free_node(dNode);
+                    rotate_left(brother);
+                    rotate_right(father);
+                }
+            }
+            else // 兄弟节点为父节点的右子节点
+            {
+                if (get_color(brother->right) == rb_tree_red) // 兄弟节点的右子树为红色，即rr型,
+                {
+                    brother->right->color = get_color(brother);
+                    brother->color = get_color(father);
+                    father->color = rb_tree_black;
+
+                    father->left = nullptr;
+                    free_node(dNode);
+                    rotate_left(father);
+                }
+                else // rl型
+                {
+                    brother->left->color = get_color(father);
+                    father->color = rb_tree_black;
+
+                    father->left = nullptr;
+                    free_node(dNode);
+                    rotate_right(brother);
+                    rotate_left(father);
+                }
+            }
+        } // end of _erase
+
+        // 消除双黑节点
+        template <class Key, class Value, class KeyOfValue, class Compare, class Alloc>
+        void rb_tree<Key, Value, KeyOfValue, Compare, Alloc>::_erase_double_black(nodePointer dNode)
+        {
+            while (dNode != head->parent && get_color(dNode) == rb_tree_black)
+            {
+                auto father = dNode->parent;
+                auto brother = ((dNode == father->left) ? (father->right) : (father->left));
+
+                // brother为红色时：转换为brother为黑色
+                if (father->left == dNode && get_color(brother) == rb_tree_red)
+                {
+                    // dNode为左子节点,且兄弟节点为红色
+                    father->color = rb_tree_red;
+                    brother->color = rb_tree_black;
+                    rotate_left(father);
+                    father = dNode->parent;
+                    brother = ((dNode == father->left) ? (father->right) : (father->left));
+                }
+                else if (father->right == dNode && get_color(brother) == rb_tree_red)
+                {
+                    father->color = rb_tree_red;
+                    brother->color = rb_tree_black;
+                    rotate_right(father);
+                    father = dNode->parent;
+                    brother = ((dNode == father->left) ? (father->right) : (father->left));
+                }
+
+                // brother为黑色：
+
+                // brother没有红色子节点
+                if (get_color(brother->left) == rb_tree_black && get_color(brother->right) == rb_tree_black)
+                {
+                    brother->color = rb_tree_red;
+
+                    // 将father节点标为双黑
+                    dNode = father;
+                    continue;
+                }
+
+                // 此时只剩下兄弟节点至少有一个红色子节点的情况
+
+                if (father->left == brother) // 兄弟节点为父节点的左子节点
+                {
+                    if (get_color(brother->left) == rb_tree_red) // 兄弟节点的左子树为红色，即ll型,
+                    {
+                        // 调整的目的是使兄弟节点的左子树上的叶子节点到根节点的黑色节点数多出来一个
+                        // 然后通过旋转将多出来的这个黑色节点转移到dNode所在子树，以弥补因删除dNode而缺少的一个黑色节点
+                        // 具体做法是，保留father与brother的颜色，将他们往下平移，然后将father的颜色改为黑色
+                        // 这样brother的红色子节点所在分支少了一个红色节点，多了一个黑色节点，旋转后可以维持红黑树的性质
+                        brother->left->color = get_color(brother);
+                        brother->color = get_color(father);
+                        father->color = rb_tree_black;
+
+                        rotate_right(father);
+                        return;
+                    }
+                    else // 兄弟节点的右子树为红色，即lr型,
+                    {
+                        // 将father的颜色赋给这个红色节点，然后将father变黑，
+                        // 左旋brother，右旋father，相当于红色节点变为黑色后转到了右边，
+                        // father节点的颜色经过两次旋转后回到原来的位置，维持了红黑树的性质
+                        brother->right->color = get_color(father);
+                        father->color = rb_tree_black;
+
+                        rotate_left(brother);
+                        rotate_right(father);
+                        return;
+                    }
+                }
+                else // 兄弟节点为父节点的右子节点
+                {
+                    if (get_color(brother->right) == rb_tree_red) // 兄弟节点的右子树为红色，即rr型,
+                    {
+                        brother->right->color = get_color(brother);
+                        brother->color = get_color(father);
+                        father->color = rb_tree_black;
+
+                        rotate_left(father);
+                        return;
+                    }
+                    else // rl型
+                    {
+                        brother->left->color = get_color(father);
+                        father->color = rb_tree_black;
+
+                        rotate_right(brother);
+                        rotate_left(father);
+                        return;
+                    }
+                }
+            } // end of while
+
+            // 此时dNode为红色或者为根节点
+            dNode->color = rb_tree_black;
+        } // end of _erase_double_black
 
     } // end of detail
 
