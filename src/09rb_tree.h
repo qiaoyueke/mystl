@@ -209,7 +209,7 @@ namespace qyk
             // 回收一个node
             void free_node(nodePointer node)
             {
-                destroy(&node->value);
+                qykDestroy(&node->value);
                 rb_tree_node_allocator::deallocate(node);
             }
 
@@ -403,10 +403,10 @@ namespace qyk
                 }
             }
 
-            iterator lower_bound(const value_type x) { return _lower_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
-            const_iterator lower_bound(const value_type x) const {return _lower_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
-            iterator upper_bound(const value_type x) {return _upper_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
-            const_iterator upper_bound(const value_type x) const {return _upper_bound(begin(), end(), x, comp , forward_iterator_tag(), distance_type(begin())); }
+            iterator lower_bound(const key_type x) { return _lower_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
+            const_iterator lower_bound(const key_type x) const {return _lower_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
+            iterator upper_bound(const key_type x) {return _upper_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
+            const_iterator upper_bound(const key_type x) const {return _upper_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
 
         }; // end of rb_tree class
 
@@ -517,7 +517,7 @@ namespace qyk
                 return newNode;
             }
 
-            if (comp(pod->value, KeyOfValue()(value)))
+            if (comp(KeyOfValue()(pod->value), KeyOfValue()(value)))
             {
                 // value大于pod，构建右子节点
                 pod->right = newNode;

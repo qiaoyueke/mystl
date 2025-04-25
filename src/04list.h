@@ -140,7 +140,7 @@ namespace qyk
         // 析构目标list_node的数据，并回收list_node
         void destroy_node(nodePointer p)
         {
-            destroy(&(p->data));
+            qykDestroy(&(p->data));
             free_node(p);
         }
 
@@ -295,7 +295,7 @@ namespace qyk
         template <class InputIterator, typename = typename my_enable_if<is_iterator<InputIterator>::value>::type>
         void insert(iterator pod, InputIterator first, InputIterator last)
         {
-            size_type n = distance(first, last);
+            size_type n = qykDistance(first, last);
             size_ += n;
             nodePointer cue = pod.node->prev;
             for (; n > 0; n--)

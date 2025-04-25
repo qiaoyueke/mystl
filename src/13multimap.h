@@ -1,11 +1,11 @@
-#ifndef QYK_MAP
-#define QYK_MAP
+#ifndef QYK_MULTIMAP
+#define QYK_MULTIMAP
 #include "09rb_tree.h"
 
 namespace qyk
 {
     template <class Key, class T, class Compare = less<Key>, class Alloc = alloc>
-    class map
+    class multimap
     {
     private:
         using Value = std::pair<Key,T>;
@@ -17,7 +17,7 @@ namespace qyk
         using value_type = Value;
         using iterator = typename cor::iterator;
         using const_iterator = typename cor::const_iterator;
-        using self = map<T, Compare, Alloc>;
+        using self = multimap<T, Compare, Alloc>;
         using pointer = typename cor::pointer;
         using reference = typename cor::reference;
         using const_pointer = typename cor::const_pointer;
@@ -25,14 +25,14 @@ namespace qyk
         using size_type = typename cor::size_type;
         using difference_type = typename cor::difference_type;
 
-        map() : core(Compare()) {}
-        explicit map(Compare comp) : core(comp) {}
+        multimap() : core(Compare()) {}
+        explicit multimap(Compare comp) : core(comp) {}
         template <class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::type>
-        map(Iterator first, Iterator last) : core(Compare())
+        multimap(Iterator first, Iterator last) : core(Compare())
         {
-            core.insert_unique(first, last);
+            core.insert_equal(first, last);
         }
-        map(const self &other) : core(other.core) {}
+        multimap(const self &other) : core(other.core) {}
 
         self &operator=(const self &other)
         {
@@ -48,14 +48,14 @@ namespace qyk
 
         std::pair<iterator, bool> insert(const value_type &x)
         {
-            std::pair<iterator, bool> p = core.insert_unique(x);
+            std::pair<iterator, bool> p = core.insert_equal(x);
             return std::pair<iterator, bool>(p.first, p.second);
         }
 
         template <class InputIterator>
         void insert(InputIterator first, InputIterator last)
         {
-            core.insert_unique(first, last);
+            core.insert_equal(first, last);
         }
 
         void erase(iterator pos)
@@ -83,8 +83,8 @@ namespace qyk
         const_iterator upper_bound(const key_type &x) const { return core.upper_bound(x); }
 
         T& operator[](const key_type& key){
-            return (*((core.insert_unique(value_type(key,T()))).first)).second;
-            //core.insert_unique(value_type(key,T())) 插入一个value：(key,T())，返回一个pair<iterator,bool>
+            return (*((core.insert_equal(value_type(key,T()))).first)).second;
+            //core.insert_equal(value_type(key,T())) 插入一个value：(key,T())，返回一个pair<iterator,bool>
             //返回值的first是迭代器，指向插入的值，或者冲突的值，取second就是T&
         }
     };

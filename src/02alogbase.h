@@ -27,12 +27,16 @@ namespace
 		}
 	};
 
-	template <class T = void>
-	struct first
+	template <class T1, class T2>
+	struct select1st
 	{
-		constexpr T operator()(const T &first) const
+		constexpr T1& operator()(std::pair<T1, T2> &x)
 		{
-			return first.first;
+			return x.first;
+		}
+		constexpr const T1& operator()(const std::pair<T1, T2> &x) const
+		{
+			return x.first;
 		}
 	};
 
@@ -240,19 +244,19 @@ namespace qyk
 {
 	namespace detail
 	{
-		template <class ForwardIterator, class T, class Compare , class Distance>
-		ForwardIterator _lower_bound(ForwardIterator first, ForwardIterator last, const T &x, Compare comp, forward_iterator_tag, Distance*)
+		template <class ForwardIterator, class T, class Compare, class KeyOfValue, class Distance>
+		ForwardIterator _lower_bound(ForwardIterator first, ForwardIterator last, const T &x, Compare comp, KeyOfValue kov, forward_iterator_tag, Distance*)
 		{
-			Distance len = distance(first, last);
+			Distance len = qykDistance(first, last);
 			Distance half = 0;
 			ForwardIterator mid = first;
 
 			while(len>0){
 				half = len>>1;
 				mid = first;
-				advance(mid, half);
+				qykAdvance(mid, half);
 
-				if(comp(*mid, x)){
+				if(comp(kov(*mid), x)){
 					first = ++mid;
 					len = len - half - 1;
 				}else{
@@ -262,8 +266,8 @@ namespace qyk
 			return first;
 		}
 
-		template <class RandomIterator, class T, class Compare , class Distance>
-		RandomIterator _lower_bound(RandomIterator first, RandomIterator last, const T &x, Compare comp, random_access_iterator_tag, Distance*)
+		template <class RandomIterator, class T, class Compare, class KeyOfValue, class Distance>
+		RandomIterator _lower_bound(RandomIterator first, RandomIterator last, const T &x, Compare comp, KeyOfValue kov, random_access_iterator_tag, Distance*)
 		{
 			Distance len = last - first;
 			Distance half = 0;
@@ -274,7 +278,7 @@ namespace qyk
 				mid = first;
 				mid = mid + half;
 
-				if(comp(*mid, x)){
+				if(comp(kov(*mid), x)){
 					first = ++mid;
 					len = len - half - 1;
 				}else{
@@ -284,19 +288,19 @@ namespace qyk
 			return first;
 		}
 
-		template <class ForwardIterator, class T, class Compare , class Distance>
-		ForwardIterator _upper_bound(ForwardIterator first, ForwardIterator last, const T &x, Compare comp, forward_iterator_tag, Distance*)
+		template <class ForwardIterator, class T, class Compare, class KeyOfValue, class Distance>
+		ForwardIterator _upper_bound(ForwardIterator first, ForwardIterator last, const T &x, Compare comp, KeyOfValue kov, forward_iterator_tag, Distance*)
 		{
-			Distance len = distance(first, last);
+			Distance len = qykDistance(first, last);
 			Distance half = 0;
 			ForwardIterator mid = first;
 
 			while(len>0){
 				half = len>>1;
 				mid = first;
-				advance(mid, half);
+				qykAdvance(mid, half);
 
-				if(comp(x, *mid)){
+				if(comp(x,kov(*mid))){
 					len = half;
 				}else{
 					first = ++mid;
@@ -306,8 +310,8 @@ namespace qyk
 			return first;
 		}
 
-		template <class RandomIterator, class T, class Compare , class Distance>
-		RandomIterator _upper_bound(RandomIterator first, RandomIterator last, const T &x, Compare comp, random_access_iterator_tag, Distance*)
+		template <class RandomIterator, class T, class Compare, class KeyOfValue, class Distance>
+		RandomIterator _upper_bound(RandomIterator first, RandomIterator last, const T &x, Compare comp, KeyOfValue kov, random_access_iterator_tag, Distance*)
 		{
 			Distance len = last - first;
 			Distance half = 0;
@@ -317,7 +321,7 @@ namespace qyk
 				half = len>>1;
 				mid = first + half;
 
-				if(comp(x, *mid)){
+				if(comp(x, kov(*mid))){
 					len = half;
 				}else{
 					first = ++mid;
@@ -328,16 +332,16 @@ namespace qyk
 		}
 	}//end of detail
 
-	template <class Iterator, class T, class Compare = less<T>, typename my_enable_if<is_iterator<Iterator>::value>::type>
-	Iterator lower_bound(Iterator first, Iterator last, const T &x, Compare comp = Compare())
+	template <class Iterator, class T, class Compare = less<T>, class KeyOfValue, typename my_enable_if<is_iterator<Iterator>::value>::type>
+	Iterator lower_bound(Iterator first, Iterator last, const T &x, Compare comp, KeyOfValue kov)
 	{
-		return _lower_bound(first, last, x, comp, iterator_category(first), distance_type(first));
+		return _lower_bound(first, last, x, comp, kov, iterator_category(first), distance_type(first));
 	}
 
-	template <class Iterator, class T, class Compare = less<T>, typename my_enable_if<is_iterator<Iterator>::value>::type>
-	Iterator upper_bound(Iterator first, Iterator last, const T &x, Compare comp = Compare())
+	template <class Iterator, class T, class Compare = less<T>, class KeyOfValue, typename my_enable_if<is_iterator<Iterator>::value>::type>
+	Iterator upper_bound(Iterator first, Iterator last, const T &x, Compare comp, KeyOfValue kov)
 	{
-		return _upper_bound(first, last, x, comp, iterator_category(first), distance_type(first));
+		return _upper_bound(first, last, x, comp, kov, iterator_category(first), distance_type(first));
 	}
 
 }//end of lower_bound/ upper_bound

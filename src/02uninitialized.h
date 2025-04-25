@@ -24,12 +24,14 @@ namespace qyk {
 			try{
 				for (; first != last;) {
 					construct(&*cur, *first);
+					++first;
+					++cur;
 				}
 			}
 			catch (...) {
 				ForwardIteartor pur = result;
 				for (; pur != cur; pur++) {
-					destroy(&*pur);
+					qykDestroy(&*pur);
 				}
 				throw;
 			}
@@ -66,7 +68,7 @@ namespace qyk {
 				ForwardIteartor pur = result;
 				for (; pur != cur; pur++, cfirst++) {
 					*cfirst = std::move(*pur);
-					destroy(&*pur);
+					qykDestroy(&*pur);
 				}
 				throw;
 			}
@@ -104,7 +106,7 @@ namespace qyk {
 			catch (...) {
 				ForwardIterator pur = first;
 				for (; pur != cur;) {
-					destroy(&*pur);
+					qykDestroy(&*pur);
 				}
 				throw;
 			}
@@ -135,7 +137,7 @@ namespace qyk {
 			catch (...) {
 				ForwardIterator pur = first;
 				for (; pur != cur; ++pur) {
-					destroy(&*pur);
+					qykDestroy(&*pur);
 				}
 				throw;
 			}

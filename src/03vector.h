@@ -59,7 +59,7 @@ namespace qyk {
 		//通过两个迭代器构造
 		template<class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::type>
 		vector(Iterator first, Iterator last) {
-			size_type n = distance(first, last);
+			size_type n = qykDistance(first, last);
 			start = data_allocator::allocate(n);
 			uninitialized_copy(first, last, start);
 			finish = start + n;
@@ -77,9 +77,9 @@ namespace qyk {
 		//列表初始化
 		vector(std::initializer_list<T> init_list) {
 			start = data_allocator::allocate(init_list.size());
-			uninitialized_copy(init_list.begin(), init_list.end(), start);
 			finish = start + init_list.size();
 			endOfStorage = finish;
+			uninitialized_copy(init_list.begin(), init_list.end(), start);
 		}
 
 		//移动构造
@@ -92,7 +92,7 @@ namespace qyk {
 		//析构
 		~vector() {
 			if (start) {
-				destroy(start, finish);
+				qykDestroy(start, finish);
 				data_allocator::deallocate(start, endOfStorage - start);
 			}
 			start = nullptr;
@@ -144,7 +144,7 @@ namespace qyk {
 			iterator newStart = data_allocator::allocate(new_cap);
 			uninitialized_move(start, finish, newStart);
 			if (start) {
-				destroy(start, finish);
+				qykDestroy(start, finish);
 			}
 			size_type old = size();
 			if(start) data_allocator::deallocate(start, old);
@@ -154,7 +154,7 @@ namespace qyk {
 		}
 
 		void clear() {
-			destroy(start, finish);
+			qykDestroy(start, finish);
 			finish = start;
 		}
 
@@ -175,17 +175,17 @@ namespace qyk {
 			if ((&*pos) < (&*end) && (&*finish) >= (&*end)) {
 				//满足条件则说明begin和end都是这个vector的迭代器，并且覆盖了pos，对pos操作会使begin到end
 				//之间的数据被覆盖，需要进行备份,
-				iterator build_start= data_allocator::allocate(distance(begin, end));
-				auto build_finish = build_start + distance(begin, end);
+				iterator build_start= data_allocator::allocate(qykDistance(begin, end));
+				auto build_finish = build_start + qykDistance(begin, end);
 				copy(begin, end, build_start);
 				insert(pos, build_start, build_finish);
 				if (build_start) {
-					destroy(build_start, build_finish);
+					qykDestroy(build_start, build_finish);
 				}
-				data_allocator::deallocate(build_start, distance(begin, end));
+				data_allocator::deallocate(build_start, qykDistance(begin, end));
 				return;
 			}
-			auto n = distance(begin, end);
+			auto n = qykDistance(begin, end);
 			size_type npos = pos - start;
 			if (endOfStorage - finish < n) {
 				iterator newStart = data_allocator::allocate(2 * ((finish - start) + n));
@@ -196,7 +196,7 @@ namespace qyk {
 				move(vpos, finish, newStart + n + npos);
 				uninitialized_copy(begin, end, newStart + npos);
 				if (start) {
-					destroy(start, finish);
+					qykDestroy(start, finish);
 				}
 				data_allocator::deallocate(start, size());
 				start = newStart;
@@ -232,13 +232,13 @@ namespace qyk {
 
 		iterator erase(const_iterator begin, const_iterator end) {
 			auto result=move(const_cast<iterator>(end), finish, const_cast<iterator>(begin));
-			finish -= distance(begin, end);
+			finish -= qykDistance(begin, end);
 			return result;
 		}
 
 		iterator erase(const_iterator pos) {
 			if (pos == finish) {
-				destroy(pos);
+				qykDestroy(pos);
 				finish--;
 				return finish;
 			}
@@ -249,13 +249,13 @@ namespace qyk {
 
 		void pop_back() {
 			if(!empty())
-			destroy(--finish);
+			qykDestroy(--finish);
 		}
 
 	
 		void resize(size_type n, value_type value = T()) {
 			if (n <= finish - start) {
-				destroy(start + n, finish);
+				qykDestroy(start + n, finish);
 				finish = start + n;
 				return;
 			}

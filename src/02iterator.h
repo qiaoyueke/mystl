@@ -174,7 +174,7 @@ namespace qyk
 	// distance标准接口
 	template <class InputIterator>
 	inline typename iterator_traits<InputIterator>::difference_type
-	distance(InputIterator first, InputIterator last)
+	qykDistance(InputIterator first, InputIterator last)
 	{
 		typedef typename iterator_traits<InputIterator>::iterator_category category;
 		return detail::__distance(first, last, category());
@@ -182,7 +182,7 @@ namespace qyk
 
 	// advance标准接口
 	template <class InputIterator, class Distance>
-	inline void advance(InputIterator &iter, Distance n)
+	inline void qykAdvance(InputIterator &iter, Distance n)
 	{
 		detail::__advance(iter, n, iterator_category(iter));
 	}

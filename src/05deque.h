@@ -275,7 +275,7 @@ namespace qyk
                                            typename my_enable_if<is_iterator<InputIterator>::value>::type>
         deque(InputIterator first, InputIterator last)
         {
-            size_t dis = distance(first, last);
+            size_t dis = qykDistance(first, last);
             creat_deque_n(dis);
             uninitialized_copy(first, last, start);
         }
@@ -297,7 +297,7 @@ namespace qyk
         // 析构函数
         ~deque()
         {
-            destroy(start, finish);
+            qykDestroy(start, finish);
             map_pointer temp = start.node;
             for (auto i = start.node; i <= finish.node; ++i)
             {
@@ -338,14 +338,14 @@ namespace qyk
         {
             if (start.cur == start.last - 1)
             { // 如果当前buffer只有一个元素，则将其析构，然后释放buffer,更新start
-                destroy(start.cur);
+                qykDestroy(start.cur);
                 buff_allocator::deallocate(start.first);
                 start.set_node(start.node + 1);
                 start.cur = start.first;
             }
             else
             {
-                destroy(start.cur++);
+                qykDestroy(start.cur++);
             }
         }
 
@@ -364,11 +364,11 @@ namespace qyk
                 buff_allocator::deallocate(finish.first);
                 finish.set_node(finish.node - 1);
                 finish.cur = finish.last - 1;
-                destroy(finish.cur);
+                qykDestroy(finish.cur);
             }
             else
             {
-                destroy(--finish.cur);
+                qykDestroy(--finish.cur);
             }
         }
 
@@ -401,18 +401,18 @@ namespace qyk
         // 处理除头尾外的buffer，这些是满的
         for (auto i = start.node + 1; i != finish.node; i++)
         {
-            destroy(i.first, i.last);
+            qykDestroy(i.first, i.last);
             buff_allocator::deallocate(i.first, buffer_size());
         }
         if (start.node != finish.node) // 如果头尾不在同一块buffer中，则分别析构然后释放尾部的buffer
         {
-            destroy(start.cur, start.last);
-            destroy(finish.first, finish.cur);
+            qykDestroy(start.cur, start.last);
+            qykDestroy(finish.first, finish.cur);
             buff_allocator::deallocate(finish.first, buffer_size());
         }
         else
         {
-            destroy(start.cur, finish.cur);
+            qykDestroy(start.cur, finish.cur);
         }
         start.cur = start.first; // 更新状态，但是没有释放map，mapSize没变
         finish = start;
@@ -602,7 +602,7 @@ namespace qyk
     {
         size_t npod = pod - start;
         size_t npodBack = finish - start;
-        size_t n = distance(first, last);
+        size_t n = qykDistance(first, last);
 
         if (npod < finish - pod)
         {                                               // 将原来的数据往前移
@@ -671,7 +671,7 @@ namespace qyk
         {
             move_backward(start, first, last);
             iterator new_start = start + dis;
-            destroy(start, new_start);
+            qykDestroy(start, new_start);
             for (map_pointer cur = start.node; cur < new_start.node; ++cur)
 					buff_allocator::deallocate(*cur, buffer_size());
 			start = new_start;
@@ -679,7 +679,7 @@ namespace qyk
         else {			
             copy(last, finish, first);		
             iterator new_finish = finish - dis;		
-            destroy(new_finish, finish);			
+            qykDestroy(new_finish, finish);			
             for (map_pointer cur = new_finish.node + 1; cur <= finish.node; ++cur)
                 buff_allocator::deallocate(*cur, buffer_size());
             finish = new_finish;

@@ -1,5 +1,5 @@
 #include<iostream>
-#include"03vector.h"
+#include"../src/03vector.h"
 
 using namespace qyk;
 
@@ -82,6 +82,7 @@ int main() {
 		std::cout << i << "  " << f[i] << std::endl;
 	}std::cout << std::endl;
 
+	vector<std::pair<int,int>> b11{{9,9}};
 	return 0;
 
 }
