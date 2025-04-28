@@ -403,10 +403,26 @@ namespace qyk
                 }
             }
 
-            iterator lower_bound(const key_type x) { return _lower_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
-            const_iterator lower_bound(const key_type x) const {return _lower_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
-            iterator upper_bound(const key_type x) {return _upper_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
-            const_iterator upper_bound(const key_type x) const {return _upper_bound(begin(), end(), x, comp, KeyOfValue(), forward_iterator_tag(), distance_type(begin())); }
+            iterator lower_bound(const key_type x)
+            {
+                return _lower_bound(begin(), end(), x, comp,
+                                    KeyOfValue(), forward_iterator_tag(), distance_type(begin()));
+            }
+            const_iterator lower_bound(const key_type x) const
+            {
+                return _lower_bound(begin(), end(), x, comp,
+                                    KeyOfValue(), forward_iterator_tag(), distance_type(begin()));
+            }
+            iterator upper_bound(const key_type x)
+            {
+                return _upper_bound(begin(), end(), x, comp,
+                                    KeyOfValue(), forward_iterator_tag(), distance_type(begin()));
+            }
+            const_iterator upper_bound(const key_type x) const
+            {
+                return _upper_bound(begin(), end(), x, comp,
+                                    KeyOfValue(), forward_iterator_tag(), distance_type(begin()));
+            }
 
         }; // end of rb_tree class
 

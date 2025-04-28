@@ -332,17 +332,18 @@ namespace qyk
 		}
 	}//end of detail
 
-	template <class Iterator, class T, class Compare = less<T>, class KeyOfValue, typename my_enable_if<is_iterator<Iterator>::value>::type>
-	Iterator lower_bound(Iterator first, Iterator last, const T &x, Compare comp, KeyOfValue kov)
+	template <class Iterator, class T, class Compare = less<T>, typename = typename my_enable_if<is_iterator<Iterator>::value>::type>
+	Iterator upper_bound(Iterator first, Iterator last, const T &x, Compare comp = less<T>())
 	{
-		return _lower_bound(first, last, x, comp, kov, iterator_category(first), distance_type(first));
+		return(detail::_upper_bound(first,last,x,comp,Self<T>(),iterator_category(first),distance_type(first)));
 	}
 
-	template <class Iterator, class T, class Compare = less<T>, class KeyOfValue, typename my_enable_if<is_iterator<Iterator>::value>::type>
-	Iterator upper_bound(Iterator first, Iterator last, const T &x, Compare comp, KeyOfValue kov)
+	template <class Iterator, class T, class Compare = less<T>, typename = typename my_enable_if<is_iterator<Iterator>::value>::type>
+	Iterator lower_bound(Iterator first, Iterator last, const T &x, Compare comp = less<T>())
 	{
-		return _upper_bound(first, last, x, comp, kov, iterator_category(first), distance_type(first));
+		return(detail::_lower_bound(first,last,x,comp,Self<T>(),iterator_category(first),distance_type(first)));
 	}
+
 
 }//end of lower_bound/ upper_bound
 
