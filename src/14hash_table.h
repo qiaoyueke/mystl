@@ -9,6 +9,11 @@ hash表的大小从这个数组里面取，保持存放的总元素个数小于v
 
 #include "03vector.h"
 #include "02alogbase.h"
+#include <utility>
+#include "02construct.h"
+#include "02iterator.h"
+#include <cstddef>
+#include "01qyk_allocator.h"
 
 namespace qyk
 {
@@ -19,9 +24,9 @@ namespace qyk
         class hash_table_node
         {
         public:
-            using Node = hash_table_node<Value>;
+            using nodePointer = hash_table_node<Value> *;
             Value value;
-            Node *next;
+            nodePointer next;
         };
 
         // 用于维护hashtanle桶子个数的质数数组（两相邻数之间大致成两倍关系）
@@ -52,7 +57,7 @@ namespace qyk
         class hash_table_iterator
         {
         public:
-            using Node = typename hash_table_node<Value>::Node;
+            using nodePointer = typename hash_table_node<Value>::nodePointer;
             using HashTable = hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
             using value_type = Value;
             using pointer = Value *;
@@ -66,31 +71,29 @@ namespace qyk
             using iterator_category = forward_iterator_tag;
             using self = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
 
-            Node *pnode;
+            nodePointer pnode;
             HashTable *pht;
 
         public:
+            hash_table_iterator(nodePointer node, HashTable *pht) : pnode(node), pht(pht) {}
+
             // 自增， 前置++ ,哈希表的迭代器没有后退操作
             self &operator++()
             {
-                if (pnode->next != nullptr)
-                {
-                    pnode = pnode->next;
-                }
-                else
+                pnode = pnode->next;
+                if (pnode == nullptr)
                 {
                     size_t bn = pht->get_bucket_number(*this);
-                    while (++bn < (pht->buckets).size() && (pht->buckets)[bn] == nullptr)
-                        if (bn == (pht->buckets).size())
-                        {
-                            pnode = self(nullptr, pht);
-                        }
-                        else
+                    while (++bn < (pht->buckets).size())
+                    {
+                        if ((pht->buckets)[bn] != nullptr)
                         {
                             pnode = (pht->buckets)[bn];
+                            break;
                         }
+                    }
                 }
-                return pnode;
+                return *this;
             }
             // 自增，后置++
             self operator++(int)
@@ -106,13 +109,14 @@ namespace qyk
 
             bool operator==(const iterator &other) const { return (pnode == other.pnode); }
             bool operator!=(const iterator &other) const { return (pnode != other.pnode); }
-        }; //end of iterator
+        }; // end of iterator
 
-        //hash_table 的正式定义
-        template <class Key, class Value, class KeyOfValue, class KeyEqual, class HashFuc, class Alloc = alloc>
-        class hash_table{
-            public:
-            using self = hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
+        // hash_table 的正式定义
+        template <class Key, class Value, class KeyOfValue, class KeyEqual, class HashFuc, class Alloc>
+        class hash_table
+        {
+        public:
+            using key_type = Key;
             using value_type = Value;
             using pointer = Value *;
             using const_pointer = const Value *;
@@ -122,17 +126,321 @@ namespace qyk
             using difference_type = ptrdiff_t;
             using iterator = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
             using const_iterator = hash_table_iterator<const Key, const Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
-            
+
             friend class hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
             friend class hash_table_iterator<const Key, const Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
 
-            private:
-            using Node = typename hash_table_node<Value>::Node;
+        private:
+            using nodePointer = typename hash_table_node<Value>::nodePointer;
+            using node_allocater = allocator<hash_table_node<Value>, Alloc>;
+            using self = hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
 
-            vector<hash_table_node<Value>, Alloc> buckets;
+            vector<nodePointer, Alloc> buckets;
             size_type num;
-            public:
-        };// end of hash_table
+
+            HashFuc hashfuc;
+            KeyEqual key_equal;
+            KeyOfValue get_key;
+
+        protected:
+            // 初始化与扩容是用到，寻找下一个预设的大小
+            size_type next_size(const size_type n) const { return __stl_next_prime(n); }
+
+            // 返回元素在那个bucket内, 可接受的参数有：键，值, 桶子个数
+            size_type bucket_num(const key_type &key) const { return size_type(hashfuc(key) % buckets.size()); }
+            size_type bucket_num(const value_type &value) const { return bucket_num(get_key(value)); }
+            size_type bucket_num(const value_type &value, size_type bucketsNum)
+            {
+                return hashfuc(get_key(value)) % bucketsNum;
+            }
+
+            // 创建节点
+            nodePointer creat_node(const value_type &value)
+            {
+                nodePointer node = node_allocater::allocate();
+                construct(&node->value, value);
+                node->next = nullptr;
+                return node;
+            }
+
+            // 销毁节点
+            void free_node(nodePointer ptr)
+            {
+                qykDestroy(&ptr->value);
+                node_allocater::deallocate(ptr);
+            }
+
+            // 可能的扩容操作
+            void resize(const size_type newNum)
+            {
+                if (newNum > buckets.size())
+                {
+                    // 新的桶子的个数
+                    size_type newSize = next_size(newNum);
+                    vector<nodePointer> newBuckets(newSize, nullptr);
+
+                    size_type oldSize = buckets.size();
+
+                    // 遍历原来的每个桶子
+                    for (size_type i = 0; i < oldSize; i++)
+                    {
+                        nodePointer cur = buckets[i];
+                        // 对桶子里的每一个节点：
+                        while (cur != nullptr)
+                        {
+                            // 找到这个节点在哪一个新桶子内
+                            size_type newBucketNum = bucket_num(cur->value, newSize);
+
+                            // 更新旧桶子
+                            buckets[i] = cur->next;
+
+                            // 将这个节点插入到桶子的头部
+                            cur->next = newBuckets[newBucketNum];
+                            newBuckets[newBucketNum] = cur;
+
+                            // 更新cur
+                            cur = buckets[i];
+                        }
+                    }
+                    buckets.swap(newBuckets);
+                }
+            }
+
+            // 插入节点，不允许重复
+            std::pair<iterator, bool> insert_unique_aux(const value_type &value);
+            // 插入节点，允许重复
+            iterator insert_equal_aux(const value_type &value);
+            // 删除节点
+            void erase_aux(const value_type &value)
+            {
+                size_type n = bucket_num(value);
+                nodePointer cur = buckets[n];
+
+                if (cur == nullptr)
+                    return;
+
+                // buckets[n]就是要删除的
+                if (key_equal(get_key(value), get_key(cur->value)))
+                {
+                    buckets[n] = cur->next;
+                    free_node(cur);
+                    return;
+                }
+
+                nodePointer pre = cur;
+                cur = cur->next;
+
+                while (cur != nullptr)
+                {
+                    if (key_equal(get_key(value), get_key(cur->value)))
+                    {
+                        pre->next = cur->next;
+                        free_node(cur);
+                        return;
+                    }
+                    pre = cur;
+                    cur = cur->next;
+                }
+            }
+
+        public:
+            hash_table(size_type n, const HashFuc &hf, const KeyEqual &ke)
+                : buckets(next_size(n), nullptr), hashfuc(hf), key_equal(ke), get_key(KeyOfValue())
+            {
+                num = 0;
+            }
+
+            iterator begin()
+            {
+                for (size_type i = 0; i < buckets.size(); i++)
+                {
+                    if (buckets[i] != nullptr)
+                    {
+                        return iterator(buckets[i], this);
+                    }
+                }
+                return end();
+            }
+
+            const_iterator begin() const
+            {
+                for (size_type i = 0; i < buckets.size(); i++)
+                {
+                    if (buckets[i] != nullptr)
+                    {
+                        return const_iterator(buckets[i], this);
+                    }
+                }
+                return end();
+            }
+
+            iterator end() { return iterator(nullptr, this); }
+            const_iterator end() const { return const_iterator(nullptr, this); }
+
+            size_type size() const { return num; }
+            bool empty() const { return num == 0; }
+
+            // 查找键为key的元素，返回迭代器
+            iterator find(key_type &key)
+            {
+                size_type n = bucket_num(key);
+                nodePointer res = buckets[n];
+
+                while (res != nullptr)
+                {
+                    if (key_equal(key, get_key(res->value)))
+                    {
+                        return iterator(res, this);
+                    }
+                    res = res->next;
+                }
+                return end();
+            }
+
+            const_iterator find(key_type &key) const
+            {
+                size_type n = bucket_num(key);
+                nodePointer res = buckets[n];
+
+                while (res != nullptr)
+                {
+                    if (key_equal(key, get_key(res->value)))
+                    {
+                        return const_iterator(res, this);
+                    }
+                    res = res->next;
+                }
+                return end();
+            }
+
+            // 返回键为key的元素的个数
+            size_type count(const key_type &key) const
+            {
+                iterator first = find(key);
+                size_type result = 0;
+                if (first != end())
+                {
+                    nodePointer cur = first.pnode;
+                    while (cur != nullptr)
+                    {
+                        if (key_equal(key, get_key(cur->value)))
+                        {
+                            result++;
+                            cur = cur->next;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+                return result;
+            }
+
+            // 插入元素，不允许重复，返回一个pair<iterator, bool>，
+            // 第一个元素是插入元素的迭代器或者发生冲突的元素的迭代器，第二个元素表示是否插入成功
+            std::pair<iterator, bool> insert_unique(const value_type &value)
+            {
+                // 先判断插入后是否需要重构
+                resize(num + 1);
+                return insert_unique_aux(value);
+            }
+            template <class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::tpye>
+            void insert_unique(Iterator first, Iterator last)
+            {
+                while (first != last)
+                {
+                    insert_unique(*first);
+                    ++first;
+                }
+                return;
+            }
+
+            // 插入元素，允许重复，返回一个iterator
+            iterator insert_equal(const value_type &value)
+            {
+                // 先判断插入后是否需要重构
+                resize(num + 1);
+                return insert_equal_aux(value);
+            }
+            template <class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::type>
+            void insert_equal(Iterator first, Iterator last)
+            {
+                while (first != last)
+                {
+                    insert_equal(*first);
+                    ++first;
+                }
+                return;
+            }
+
+            // 删除元素， 可以接受的参数有：值，迭代器，节点
+            void erase(iterator it) { return erase_aux(*it); }
+            void erase(value_type &value) { return erase_aux(value); }
+            void erase(nodePointer node) { return erase_aux(node->value); }
+            template <class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::tpye>
+            void erase(Iterator first, Iterator last)
+            {
+                while (first != last)
+                {
+                    Iterator temp = first++;
+                    erase_aux(*temp);
+                }
+                return;
+            }
+
+            // clear()，清空哈希表,只是释放了表内存放的元素，没有释放vector的内存
+            void clear()
+            {
+                size_type size = buckets.size();
+                for (size_type i = 0; i < size; i++)
+                {
+                    nodePointer cur = buckets[i];
+                    while (cur != nullptr)
+                    {
+                        nodePointer temp = cur;
+                        cur = cur->next;
+                        free_node(temp);
+                    }
+                    buckets[i] = nullptr;
+                }
+                num = 0;
+            }
+
+            // 复制 other 到本hashtable
+            void copy_from(const hash_table &other)
+            {
+                // 先将自己清空，把buckets调整到个other的buckets大小一样，用nullptr填充
+                clear();
+                size_type bucketSize = other.buckets.size();
+                buckets.resize(bucketSize, nullptr);
+
+                // 将other的node一一复制过来
+                for (size_type i = 0; i < bucketSize; i++)
+                {
+                    nodePointer cur = other.buckets[i];
+                    if (cur != nullptr)
+                    {
+                        buckets[i] = creat_node((*cur)->value);
+                        nodePointer copy = buckets[i];
+                        for (cur = cur->next; cur != nullptr; cur = cur->next)
+                        {
+                            copy->next = creat_node((*cur)->value);
+                            copy = copy->next;
+                        }
+                    }
+                }
+                num = other.num;
+            }
+
+            // 交换两个哈希表
+            void swap(self &other)
+            {
+                buckets.swap(other.buckets);
+                swap(num, other.num);
+            }
+
+        }; // end of hash_table
 
     } // end of detail
 } // end of qyk

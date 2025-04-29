@@ -123,7 +123,7 @@ namespace qyk {
 
 		template<typename ForwardIterator, typename size, typename T>
 		inline ForwardIterator __uninitialized_fill_n_aux(ForwardIterator first, size n, const T& x, __true_type) {
-			return fill_n(first, n, x);
+			return qyk::fill_n(first, n, x);
 		}
 
 		template<typename ForwardIterator, typename size, typename T>

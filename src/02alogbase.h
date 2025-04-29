@@ -40,6 +40,16 @@ namespace
 		}
 	};
 
+	template <class T>
+	struct Equal
+	{
+		constexpr bool operator()(const T& t1, const T& t2)
+		{
+			return t1 == t1;
+		}
+		
+	};
+
 }
 
 // copy,接受三个迭代器，将前两个迭代器之间的元素复制到第三个迭代器后面，返回复制后最后一个元素的下一个迭代器
@@ -344,8 +354,18 @@ namespace qyk
 		return(detail::_lower_bound(first,last,x,comp,Self<T>(),iterator_category(first),distance_type(first)));
 	}
 
-
 }//end of lower_bound/ upper_bound
+
+//swap(first, last) 交换first与last
+namespace qyk{
+	template<class T>
+	void swap(T& t1, T& t2){
+		T temp = t1;
+		t1 = t2;
+		t2 = temp;
+		return;
+	}
+}
 
 
 #endif

@@ -4,6 +4,8 @@
 using namespace qyk;
 
 int main() {
+	vector<int*> x(10,nullptr);
+
 	vector<int> a;
 	for (int i = 0; i != a.size(); ++i) {
 		std::cout << i << "  "<<a[i]<< std::endl;
@@ -35,8 +37,8 @@ int main() {
 		std::cout << i << "  " << f[i] << std::endl;
 	}std::cout << std::endl;
 
-	std::cout << "e.size（）" << e.size();
-
+	std::cout << "e.size（）" << e.size()<<std::endl;
+	
 
 	int* p = f.data();
 	std::cout << p << "  " << f.begin();
@@ -45,6 +47,8 @@ int main() {
 	for (int i = 0; i != d.size(); ++i) {
 		std::cout << i << "  " << d[i] << std::endl;
 	}std::cout << std::endl;
+
+
 
 	f.resize(20);
 	for (int i = 0; i != f.size(); ++i) {
@@ -56,10 +60,15 @@ int main() {
 		std::cout << i << "  " << f[i] << std::endl;
 	}std::cout << std::endl;
 
+
+
+
 	f.insert(f.begin() + 2,2,9);
 	for (int i = 0; i != f.size(); ++i) {
 		std::cout << i << "  " << f[i] << std::endl;
 	}std::cout << std::endl;
+
+
 
 	f.insert(f.begin() + 2, b.begin(),b.end());
 	for (int i = 0; i != f.size(); ++i) {
@@ -83,6 +92,13 @@ int main() {
 	}std::cout << std::endl;
 
 	vector<std::pair<int,int>> b11{{9,9}};
+
+	vector<int> aa{1,2,3,4,5};
+	vector<int> bb{5,4,3,2,1};
+	bb.swap(aa);
+	for(auto i = bb.begin(); i < bb.end(); i++){
+		std::cout<<*i<<" ";
+	}std::cout<<std::endl;
 	return 0;
 
 }

@@ -26,6 +26,7 @@ namespace qyk {
 		typedef const value_type&	const_reference;
 		typedef size_t				size_type;
 		typedef ptrdiff_t			difference_type;
+		typedef vector<T, Alloc> 	self;
 
 	private:
 		typedef allocator<T> data_allocator;
@@ -86,7 +87,7 @@ namespace qyk {
 		vector(vector<T>&& other)  noexcept  :start(other.start), finish(other.finish), endOfStorage(other.endOfStorage) {
 			other.start = nullptr;
 			other.finish = nullptr;
-			endOfStorage = other.endOfStorage = nullptr;
+			other.endOfStorage = nullptr;
 		};
 
 		//析构
@@ -146,7 +147,7 @@ namespace qyk {
 			if (start) {
 				qykDestroy(start, finish);
 			}
-			size_type old = size();
+			size_type old = endOfStorage - start;
 			if(start) data_allocator::deallocate(start, old);
 			start = newStart;
 			finish = start + old;
@@ -198,7 +199,7 @@ namespace qyk {
 				if (start) {
 					qykDestroy(start, finish);
 				}
-				data_allocator::deallocate(start, size());
+				data_allocator::deallocate(start, endOfStorage - start);
 				start = newStart;
 				finish = newFinish;
 				endOfStorage = newEndOfStorage;
@@ -263,6 +264,13 @@ namespace qyk {
 			iterator newfinish = start + n;
 			fill(finish, newfinish, value);
 			finish = newfinish;
+		}
+
+		void swap(self& other){
+			qyk::swap(start, other.start);
+			qyk::swap(finish, other.finish);
+			qyk::swap(endOfStorage, other.endOfStorage);
+			return;
 		}
 		
 	};//end of vector
