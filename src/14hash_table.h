@@ -14,6 +14,7 @@ hash表的大小从这个数组里面取，保持存放的总元素个数小于v
 #include "02iterator.h"
 #include <cstddef>
 #include "01qyk_allocator.h"
+#include <type_traits>
 
 namespace qyk
 {
@@ -53,46 +54,50 @@ namespace qyk
         class hash_table;
 
         // hash_table的迭代器
-        template <class Key, class Value, class KeyOfValue, class KeyEqual, class HashFuc, class Alloc = alloc>
+        template <class Key, class Value, class KeyOfValue, class KeyEqual, class HashFuc, bool IsConst, class Alloc = alloc>
         class hash_table_iterator
         {
         public:
-            using nodePointer = typename hash_table_node<Value>::nodePointer;
+            using nodePointer = typename std::conditional<IsConst,const hash_table_node<Value>*, hash_table_node<Value>*>::type;
             using HashTable = hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
-            using value_type = Value;
-            using pointer = Value *;
-            using const_pointer = const Value *;
-            using reference = Value &;
-            using const_reference = const Value &;
+            using HashTablePointer = typename std::conditional<IsConst, const HashTable *, HashTable *>::type;
+            using value_type = typename std::conditional<IsConst, const Value, Value>::type;
+            using pointer = value_type *;
+            using reference = value_type &;
             using size_type = size_t;
             using difference_type = ptrdiff_t;
-            using iterator = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
-            using const_iterator = hash_table_iterator<const Key, const Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
+            using iterator = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, false, Alloc>;
+            using const_iterator = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, true, Alloc>;
             using iterator_category = forward_iterator_tag;
-            using self = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
+            using self = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, IsConst, Alloc>;
 
             nodePointer pnode;
-            HashTable *pht;
+            HashTablePointer pht;
 
         public:
-            hash_table_iterator(nodePointer node, HashTable *pht) : pnode(node), pht(pht) {}
+            hash_table_iterator() : pnode(nullptr), pht(nullptr) {}
+            hash_table_iterator(nodePointer node, HashTablePointer ht) : pnode(node), pht(ht) {}
+            hash_table_iterator(const self &other) : pnode(other.pnode), pht(other.pht) {}
+            template <bool OtherIsConst, typename = std::enable_if_t<IsConst && !OtherIsConst>>
+            hash_table_iterator(const hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, OtherIsConst, Alloc> &other)
+                : pnode(other.pnode), pht(other.pht) {}
 
             // 自增， 前置++ ,哈希表的迭代器没有后退操作
             self &operator++()
             {
-                pnode = pnode->next;
-                if (pnode == nullptr)
+                if (pnode->next == nullptr)
                 {
-                    size_t bn = pht->get_bucket_number(*this);
+                    size_t bn = pht->bucket_num(**this);
                     while (++bn < (pht->buckets).size())
                     {
                         if ((pht->buckets)[bn] != nullptr)
                         {
                             pnode = (pht->buckets)[bn];
-                            break;
+                            return *this;
                         }
                     }
                 }
+                pnode = pnode->next;
                 return *this;
             }
             // 自增，后置++
@@ -107,8 +112,8 @@ namespace qyk
             reference operator*() const { return pnode->value; }
             pointer operator->() const { return &(operator*()); }
 
-            bool operator==(const iterator &other) const { return (pnode == other.pnode); }
-            bool operator!=(const iterator &other) const { return (pnode != other.pnode); }
+            bool operator==(const self &other) const { return (pnode == other.pnode); }
+            bool operator!=(const self &other) const { return (pnode != other.pnode); }
         }; // end of iterator
 
         // hash_table 的正式定义
@@ -124,14 +129,15 @@ namespace qyk
             using const_reference = const Value &;
             using size_type = size_t;
             using difference_type = ptrdiff_t;
-            using iterator = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
-            using const_iterator = hash_table_iterator<const Key, const Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
+            using iterator = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, false, Alloc>;
+            using const_iterator = hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, true, Alloc>;
 
-            friend class hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
-            friend class hash_table_iterator<const Key, const Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
+            friend class hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, true, Alloc>;
+
+            friend class hash_table_iterator<Key, Value, KeyOfValue, KeyEqual, HashFuc, false, Alloc>;
 
         private:
-            using nodePointer = typename hash_table_node<Value>::nodePointer;
+            using nodePointer = hash_table_node<Value> *;
             using node_allocater = allocator<hash_table_node<Value>, Alloc>;
             using self = hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>;
 
@@ -143,15 +149,22 @@ namespace qyk
             KeyOfValue get_key;
 
         protected:
-            // 初始化与扩容是用到，寻找下一个预设的大小
+            // 初始化与扩容时用到，寻找下一个预设的大小
             size_type next_size(const size_type n) const { return __stl_next_prime(n); }
 
             // 返回元素在那个bucket内, 可接受的参数有：键，值, 桶子个数
             size_type bucket_num(const key_type &key) const { return size_type(hashfuc(key) % buckets.size()); }
-            size_type bucket_num(const value_type &value) const { return bucket_num(get_key(value)); }
+
+            template <typename value_type>
+            auto bucket_num(const value_type &value) const ->
+                typename my_enable_if<!my_is_same<value_type, key_type>::value, size_type>::type
+            {
+                return bucket_num(get_key(value));
+            }
+
             size_type bucket_num(const value_type &value, size_type bucketsNum)
             {
-                return hashfuc(get_key(value)) % bucketsNum;
+                return hashfuc(get_key(value)) % bucketsNum; // 寻找给出的值在目标桶子数量时的位置
             }
 
             // 创建节点
@@ -167,43 +180,8 @@ namespace qyk
             void free_node(nodePointer ptr)
             {
                 qykDestroy(&ptr->value);
+                ptr->next = nullptr;
                 node_allocater::deallocate(ptr);
-            }
-
-            // 可能的扩容操作
-            void resize(const size_type newNum)
-            {
-                if (newNum > buckets.size())
-                {
-                    // 新的桶子的个数
-                    size_type newSize = next_size(newNum);
-                    vector<nodePointer> newBuckets(newSize, nullptr);
-
-                    size_type oldSize = buckets.size();
-
-                    // 遍历原来的每个桶子
-                    for (size_type i = 0; i < oldSize; i++)
-                    {
-                        nodePointer cur = buckets[i];
-                        // 对桶子里的每一个节点：
-                        while (cur != nullptr)
-                        {
-                            // 找到这个节点在哪一个新桶子内
-                            size_type newBucketNum = bucket_num(cur->value, newSize);
-
-                            // 更新旧桶子
-                            buckets[i] = cur->next;
-
-                            // 将这个节点插入到桶子的头部
-                            cur->next = newBuckets[newBucketNum];
-                            newBuckets[newBucketNum] = cur;
-
-                            // 更新cur
-                            cur = buckets[i];
-                        }
-                    }
-                    buckets.swap(newBuckets);
-                }
             }
 
             // 插入节点，不允许重复
@@ -224,6 +202,7 @@ namespace qyk
                 {
                     buckets[n] = cur->next;
                     free_node(cur);
+                    num--;
                     return;
                 }
 
@@ -236,6 +215,7 @@ namespace qyk
                     {
                         pre->next = cur->next;
                         free_node(cur);
+                        num--;
                         return;
                     }
                     pre = cur;
@@ -337,6 +317,42 @@ namespace qyk
                 return result;
             }
 
+            // 可能的扩容操作
+            void resize(const size_type newNum)
+            {
+                if (newNum > buckets.size())
+                {
+                    // 新的桶子的个数
+                    size_type newSize = next_size(newNum);
+                    vector<nodePointer> newBuckets(newSize, nullptr);
+
+                    size_type oldSize = buckets.size();
+
+                    // 遍历原来的每个桶子
+                    for (size_type i = 0; i < oldSize; i++)
+                    {
+                        nodePointer cur = buckets[i];
+                        // 对桶子里的每一个节点：
+                        while (cur != nullptr)
+                        {
+                            // 找到这个节点在哪一个新桶子内
+                            size_type newBucketNum = bucket_num(cur->value, newSize);
+
+                            // 更新旧桶子
+                            buckets[i] = cur->next;
+
+                            // 将这个节点插入到桶子的头部
+                            cur->next = newBuckets[newBucketNum];
+                            newBuckets[newBucketNum] = cur;
+
+                            // 更新cur
+                            cur = buckets[i];
+                        }
+                    }
+                    buckets.swap(newBuckets);
+                }
+            }
+
             // 插入元素，不允许重复，返回一个pair<iterator, bool>，
             // 第一个元素是插入元素的迭代器或者发生冲突的元素的迭代器，第二个元素表示是否插入成功
             std::pair<iterator, bool> insert_unique(const value_type &value)
@@ -345,7 +361,7 @@ namespace qyk
                 resize(num + 1);
                 return insert_unique_aux(value);
             }
-            template <class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::tpye>
+            template <class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::type>
             void insert_unique(Iterator first, Iterator last)
             {
                 while (first != last)
@@ -375,8 +391,8 @@ namespace qyk
             }
 
             // 删除元素， 可以接受的参数有：值，迭代器，节点
-            void erase(iterator it) { return erase_aux(*it); }
-            void erase(value_type &value) { return erase_aux(value); }
+            void erase(const_iterator it) { return erase_aux(*it); }
+            void erase(const value_type &value) { return erase_aux(value); }
             void erase(nodePointer node) { return erase_aux(node->value); }
             template <class Iterator, typename = typename my_enable_if<is_iterator<Iterator>::value>::tpye>
             void erase(Iterator first, Iterator last)
@@ -437,10 +453,65 @@ namespace qyk
             void swap(self &other)
             {
                 buckets.swap(other.buckets);
-                swap(num, other.num);
+                qyk::swap(num, other.num);
             }
 
         }; // end of hash_table
+
+        // 插入元素，不允许重复，
+        template <class Key, class Value, class KeyOfValue, class KeyEqual, class HashFuc, class Alloc>
+        std::pair<typename hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>::iterator, bool>
+        hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>::insert_unique_aux(const value_type &value)
+        {
+            size_type n = bucket_num(value);
+            nodePointer cur = buckets[n];
+
+            while (cur != nullptr)
+            {
+                // 发现重复的，直接返回
+                if (key_equal(get_key(value), get_key(cur->value)))
+                {
+                    return std::pair<iterator, bool>(iterator(cur, this), false);
+                }
+                cur = cur->next;
+            }
+            // 到这里说明没有重复的, 申请新的节点放到桶子里
+
+            nodePointer newNode = creat_node(value);
+            newNode->next = buckets[n];
+            buckets[n] = newNode;
+            num++;
+
+            return std::pair<iterator, bool>(iterator(newNode, this), true);
+        }
+
+        // 插入元素，允许重复，
+        template <class Key, class Value, class KeyOfValue, class KeyEqual, class HashFuc, class Alloc>
+        typename hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>::iterator
+        hash_table<Key, Value, KeyOfValue, KeyEqual, HashFuc, Alloc>::insert_equal_aux(const value_type &value)
+        {
+            size_type n = bucket_num(value);
+            nodePointer cur = buckets[n];
+            nodePointer newNode = creat_node(value);
+            num++;
+
+            while (cur != nullptr)
+            {
+                // 发现重复的，将新节点放在这一节点后面，返回
+                if (key_equal(get_key(value), get_key(cur->value)))
+                {
+                    newNode->next = cur->next;
+                    cur->next = newNode;
+                    return iterator(newNode, this);
+                }
+                cur = cur->next;
+            }
+
+            // 到这里说明没有重复的, 申请新的节点放到桶子里
+            newNode->next = buckets[n];
+            buckets[n] = newNode;
+            return iterator(newNode, this);
+        }
 
     } // end of detail
 } // end of qyk

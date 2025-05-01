@@ -223,19 +223,6 @@ namespace qyk
 	};
 
 	
-	// template <typename T,typename = void>
-	// struct is_iterator
-	// {
-
-	// 	template <typename U>
-	// 	static auto test(int) -> decltype(void(typename iterator_traits<U>::iterator_category()), true_type{});
-
-	// 	template <typename U>
-	// 	static false_type test(...);
-
-	// 	static constexpr bool value = decltype(test<T>(0))::value;
-	// };
-
 } // end of qyk
 
 #endif // !QYK_ITERATOR

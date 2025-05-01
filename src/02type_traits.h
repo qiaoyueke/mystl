@@ -158,6 +158,15 @@ namespace qyk {
 	}//end of detail
 
 
+	template<typename T1, typename T2>
+	struct my_is_same{
+		static constexpr bool value = false;
+	};
+
+	template<typename T>
+	struct my_is_same<T,T>{
+		static constexpr bool value = true;
+	};
 
 	template<bool B, class T=void>
 	struct my_enable_if {};

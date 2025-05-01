@@ -117,6 +117,7 @@ namespace qyk {
 		const_iterator cend() const {return finish;}
 		//访问元素
 		reference operator[](size_type n) {return *(start + n);}
+		const_reference operator[](size_type n) const {return *(start + n);}
 		//带有边界检查的元素访问
 		reference at(size_type n) {
 			if (n >= 0 && start + n < finish) {
