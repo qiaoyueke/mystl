@@ -1,3 +1,38 @@
 # mySTL
 
-简易实现了c++stl常用的勇气和算法，包括两种内存分配器：pool_allocator和loki_allocator，vector，list，deque，stack，queue， priority_queue，基于红黑树的set、multiset、map、multimap，基于hash_table的 unordered_set、unordered_multiset、unordered_map、unordered_multimap
+简易实现了c++stl常用的容器和算法，包括两种内存分配器：pool_allocator、loki_allocator，vector，list，deque，stack，queue， priority_queue，基于红黑树的set、multiset、map、multimap，基于hash_table的 unordered_set、unordered_multiset、unordered_map、unordered_multimap。
+
+# 项目目的
+
+更深入的了解c++stl的设计，加深对各种常用容器的理解。自己动手实现内存池，将学到的内存管理相关知识进行运用。学习模板元编程的手法，学习enable_if、conditional等组件的使用与实现。
+
+# 主要内容：
+
+1. pool_allocator：一个内存分配器，用于为后续容器申请内存。维护了16个8~128byte的自由链表和一个空闲内存池，对于更大的空间直接调用malloc申请。空闲内存池使用malloc函数申请大块内存，分配器记录内存池申请过的内存总和，每次需要申请内存时按比例增加申请的内存大小，减少malloc的调用。为容器申请内存时，根据需要的内存大小找到对应的自由链表，从自由链表获取一块内存。自由链表为空时从内存池获取数个连续的对应内存块进行补充，补充内存时按照内存块大小初始化，借用内存块空间存放下一块内存的地址。外部申请的内存空间使用完后，将这块内存放在对应自由链表的表首归还给自由链表。pool_allocator在内存使用完成后将空间归还给自由链表，但是由于每次内存池申请的内存被分块存在不同的链表使用，难以判断malloc申请的整块内存是否都已经归还，所以并未将空间释放。
+pool_allocator在进行小内存分配时减少了malloc的调用次数，减少了cookie的空间消耗，节省内存空间。
+
+2. loki_allocator：根据loki库的small_obj_allocator实现的内存分配器。使用三级分配，第一级分配维护一个fixed_alloc链表，存放第二级分配器。调用第一级分配时根据申请的空间大小调用对应的fixed_alloc，对于大内存的申请直接调用malloc。第二级分配器维护一个chunks数组，里面动态存放一些chunks，分配时在这些chunk中寻找一个有空余内存的chunk进行分配。由于内存聚集现象，内次分配后优先使用上一次分配的chunk。第三级分配器chunk_alloc记录一个固定大小的内存块chunk的首地址、这块chunk还剩下多少个空闲内存片block、下一次要分配的内存片在chunk内的序号firstToAlloc。chunk在申请时初始化，每个内存片记录后一块内存片的序号，当这块block分配出去时，内部记录的序号作为下一次分配的block序号。归还内存时根据归还的地址与chunk记录的地址范围找到这块内存属于哪一个chunk的哪一个序号，更新firstToAlloc。
+由于chunks是连续的固定大小的内存块，且维护了剩余的可分配block数量，可以很容易判断一个chunk是否完全回收，进而进行内存释放。为避免频繁的chunk申请与释放，只有当出现两个完全回收的chunk时才释放上一个chunk。
+
+3. iterator：其中定义了一些迭代器相应属性，通过iterator_traits萃取出迭代器的特性，distance_type、iterator_category、value_type是对iterator_traits的封装，用于提取常用的迭代器属性。
+construct：对分配器申请的空间进行构造与析构。
+type_traits: 实现了type_traits编程技法。
+这些文件里也实现了my_enable_if、is_iterator等辅助迭代器参与算法。
+
+4. vector具有array的优点同时又有许多高效的优化，主要优点有顺序存储、随机访问、动态扩容、预分配等，它的插入操作和删除操作容易导致迭代器的失效，它使用原生指针作为迭代器，因此在实现insert时，要区分几个版本的insert重载，比如insert(iterator pod, Iterator first, Iterator last)与insert(iterator pod, size_t n, value_type x),当value_type为int时，两种重载将无法分别，为此实现了my_enable_if、is_iterator等使用SFINAE特性实现条件编译。
+
+5. list：list作为一个双向链表对外表现，其内部实际是一个双向循环链表，初始状态时有一个空的节点组成双向循环链表。它的优点是插入、删除、接合等操作时不会使其他迭代器失效。
+
+6. deque的结构是很多固定大小的空间buffer，它们连续存放元素T，每个vector都有一个指针指向它，这些指针node被按顺序存放在一块连续空间map里，以此实现元素连续存放的表象。deque的迭代器里含有一个指向存放的元素的指针、一个指向当前buffer起点的指针、一个指向当前buffer在map中的位置的指针。在对迭代器移动时，先根据当前buffer的起点和移动的距离得到需要跳过的buffer数量，在map中找到目标buffer，然后跳到目标位置处。应当有一个全局的函数来得知deque存放这个种类的对象时，希望一个buffer内存放多少个这种对象。
+
+7. stack：stack实际不是一种容器而是一个配接器，其内部使用list作为底层容器（也可使用deque、vector等），它通过底层容器实现对外操作。
+
+8. queue：queue是单向队列，它与stack一样，都是一个配接器，其内部使用list作为底层容器（也可使用deque、vector等）。
+
+9. priority_queue: 优先级队列的实现，这是一个配接器而不是一个容器，它默认以vector为底层容器，通过heap调用相关算法，维持底层容器中的元素保持堆的特性
+
+10. rb_tree: 红黑树是一种运用及广的自平衡二叉搜索树，可提供对数时间的插入和访问操作，其平衡性不如AVL树高，因此其维护平衡性的成本也不如AVL树高，相当于在平衡性和效率之间取了折中。这里主要实现了红黑树的数据结构、旋转算法、插入算法、删除算法等.基于红黑树实现了set、map、multiset、multimap。
+
+11. hash_table：使用了std::hash函数实现的哈希表，使用链表式的hash_table，用一个vector存放每个链表的起点，元素的key值通过hash函数计算后映射到vector的某个序号n将这个元素以链表节点hash_node的形式链接在vector[n]存放的链表后面；预先设置一个数组，里面存放一系列升放置的质数，后一个质数大致为前一个质数的两倍大小hash表的大小从这个数组里面取，保持存放的总元素个数小于vector.size。基于哈希表实现了unordered_set、unordered_map、unordered_multiset、unordered_multimap.
+
+ 
